@@ -6,8 +6,8 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { Model } from 'mongoose';
-import { registerDTO } from './dto/register.dto';
-import { loginDTO } from './dto/login.dto';
+import { RegisterDTO } from './dto/register.dto';
+import { LoginDTO } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshToken } from './schemas/refresh-token.schema';
@@ -22,7 +22,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(dataLogedRegister: registerDTO) {
+  async register(dataLogedRegister: RegisterDTO) {
     const { email, password, name } = dataLogedRegister;
     const emailInUse = await this.UserModule.findOne({
       email: email,
@@ -39,7 +39,7 @@ export class AuthService {
     });
   }
 
-  async login(dataLogedRegister: loginDTO) {
+  async login(dataLogedRegister: LoginDTO) {
     const { email, password } = dataLogedRegister;
 
     const user = await this.UserModule.findOne({
@@ -57,6 +57,18 @@ export class AuthService {
 
     return this.generateUserToken(user._id);
   }
+  // esto es para cuando un usuario se logee con un JWT entonces este JWT se renueve
+  async refreshTokensFuntion(refreshToken: string) {
+    const token = await this.RefreshTokenModule.findOne({
+      token: refreshToken,
+      expiryDate: { $gte: new Date() },
+    });
+
+    if (!token) {
+      throw new UnauthorizedException('No se puede refrescar el JWT');
+    }
+    return this.generateUserToken(token.userId);
+  }
 
   async generateUserToken(userId) {
     const accessToken = this.jwtService.sign({ userId });
@@ -71,10 +83,17 @@ export class AuthService {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 3);
 
-    await this.RefreshTokenModule.create({
-      token,
-      userId,
-      expiryDate,
-    });
+    await this.RefreshTokenModule.updateOne(
+    {
+      userId
+    },
+    {
+      $set: {expiryDate}
+    },
+    { 
+      upsert: true
+    }
+      
+    );
   }
 }
