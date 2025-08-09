@@ -43,8 +43,8 @@ $ npm run start:dev
 # production mode
 $ npm run start:prod
 
-# Start database with docker (DATA BASE HAVE A )
-$
+# start data base and server with docker compose
+$ docker compose up
 ```
 
 
