@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -12,6 +13,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshToken } from './schemas/refresh-token.schema';
 import { v4 as uuidv4 } from 'uuid';
+import { JwtPayload } from './interface/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
@@ -32,11 +34,12 @@ export class AuthService {
     }
     const hashedPass = await bcrypt.hash(password, 10);
 
-    await this.UserModule.create({
+    const userCreated = await this.UserModule.create({
       name,
       email,
       password: hashedPass,
     });
+    return userCreated;
   }
 
   async login(dataLogedRegister: LoginDTO) {
@@ -57,7 +60,7 @@ export class AuthService {
 
     return this.generateUserToken(user._id);
   }
-  // esto es para cuando un usuario se logee con un JWT entonces este JWT se renueve
+  // Esta funcion es para cuando un usuario se logee con un JWT entonces este JWT se renueve
   async refreshTokensFuntion(refreshToken: string) {
     const token = await this.RefreshTokenModule.findOne({
       token: refreshToken,
@@ -84,16 +87,40 @@ export class AuthService {
     expiryDate.setDate(expiryDate.getDate() + 3);
 
     await this.RefreshTokenModule.updateOne(
-    {
-      userId
-    },
-    {
-      $set: {expiryDate}
-    },
-    { 
-      upsert: true
-    }
-      
+      {
+        userId,
+      },
+      {
+        $set: { expiryDate, token },
+      },
+      {
+        upsert: true,
+      },
     );
+  }
+
+  async getProfileWithToken(token: string) {
+    try {
+      // 1. Verificar y decodificar el JWT
+      const decoded = this.jwtService.verify<JwtPayload>(token);
+      const userId = decoded.userId;
+
+      if (!userId) {
+        throw new UnauthorizedException('Token inválido: sin userId');
+      }
+
+      const userProfile =
+        await this.UserModule.findById(userId).select('-password');
+      if (!userProfile) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+
+      return userProfile;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new UnauthorizedException('Token inválido o expirado');
+      }
+      throw error;
+    }
   }
 }

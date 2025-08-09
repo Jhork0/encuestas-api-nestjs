@@ -4,10 +4,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
 import { JwtModule } from '@nestjs/jwt';
-import { AuthGuard } from '@nestjs/passport';
-
+import { SurveysModule } from './surveys/surveys.module';
+import { UploadService } from './upload/upload.service';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -45,9 +45,10 @@ import { AuthGuard } from '@nestjs/passport';
       inject: [ConfigService],
     }),
     AuthModule,
-    UsersModule,
+    SurveysModule,
+    UploadModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, UploadService],
 })
 export class AppModule {}
